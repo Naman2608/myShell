@@ -3,6 +3,9 @@
 #include <errno.h>
 #include <string.h>
 #include "shell.h"
+#include "source.h"
+#include "parser.h"
+// #include "backend.h"
 
 int main(int argc, char **argv)
 {
@@ -28,11 +31,18 @@ int main(int argc, char **argv)
 	    if(strcmp(cmd, "exit\n") == 0)
         {
             free(cmd);
-            break;
+            exit(EXIT_SUCCESS);
+            
         }
 
         //Otherwise, we echo back the command, free the memory we used to store the command, and continue with the loop. 
-	    printf("%s\n",cmd);
+	    // printf("%s\n",cmd);
+	    struct source_s src;
+        src.buffer   = cmd;
+        src.bufsize  = strlen(cmd);
+        src.curpos   = INIT_SRC_POS;
+        parse_and_execute(&src);
+
 	    free(cmd);
 
 	}while(1);
@@ -101,3 +111,31 @@ char *read_cmd(void){
      return ptr;
 
 }
+
+int parse_and_execute(struct source_s *src)
+{
+    skip_white_spaces(src);
+    struct token_s *tok = tokenize(src);
+    if(tok == &eof_token)
+    {
+        return 0;
+    }
+    while(tok && tok != &eof_token)
+    {
+        struct node_s *cmd = parse_simple_command(tok);
+        if(!cmd)
+        {
+            break;
+        }
+        int status = do_simple_command(cmd);
+        free_node_tree(cmd);
+        tok = tokenize(src);
+    }
+    return 1;
+}
+/*
+  This function takes the Eval-Print part of our Read-Eval-Print-Loop (REPL) away from the main() function.
+  It starts by skipping any leading whitespace characters, then it parses and executes simple commands,
+  one command at a time, until the input is consumed, before it returns control to the REPL loop in the main() function.
+*/
+
